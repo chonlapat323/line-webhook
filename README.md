@@ -2,6 +2,14 @@
 
 Next.js webhook receiver for LINE Messaging API.
 
+ตอนนี้โปรเจกต์นี้ทำงานเป็น **LINE → Vercel → OpenClaw bridge** แบบ MVP:
+- รับ webhook จาก LINE
+- verify signature
+- normalize event
+- ตัดสินใจว่าจะตอบหรือไม่
+- ส่งข้อความเข้า OpenClaw bridge endpoint
+- reply กลับ LINE
+
 ## Endpoint
 
 - `GET /api/webhook`
@@ -9,8 +17,52 @@ Next.js webhook receiver for LINE Messaging API.
 
 ## Environment Variables
 
+คัดลอกจาก `.env.example` แล้วตั้งค่าจริงใน Vercel / local:
+
 - `LINE_CHANNEL_SECRET`
 - `LINE_CHANNEL_ACCESS_TOKEN`
+- `OPENCLAW_BRIDGE_URL`
+- `INTERNAL_API_TOKEN` (optional แต่แนะนำ)
+- `OPENCLAW_TIMEOUT_MS` (optional)
+
+## Current routing rules
+
+- DM (`source.type=user`) → ตอบทุกข้อความ text
+- Group/Room → ตอบเมื่อข้อความขึ้นต้นด้วย:
+  - `แจ่มใส`
+  - `bot`
+  - `/ask`
+
+ปรับได้ใน `lib/line.js` ฟังก์ชัน `shouldRespond()`
+
+## OpenClaw bridge contract
+
+Vercel จะ `POST` ไปที่ `OPENCLAW_BRIDGE_URL` ด้วย payload แบบนี้:
+
+```json
+{
+  "sessionKey": "line:user:Uxxx",
+  "message": "prompt text...",
+  "metadata": {
+    "platform": "line",
+    "chatType": "dm",
+    "chatId": "Uxxx",
+    "userId": "Uxxx",
+    "eventId": "...",
+    "timestamp": 1234567890
+  }
+}
+```
+
+และคาดหวัง response กลับมาอย่างน้อยหนึ่ง field ต่อไปนี้:
+
+```json
+{
+  "reply": "ข้อความตอบกลับ"
+}
+```
+
+หรือ `text` / `message` ก็ได้
 
 ## Local Development
 
@@ -21,8 +73,16 @@ npm run dev
 
 ## Deploy to Vercel
 
-1. Push this repo to GitHub
-2. Import to Vercel
-3. Add environment variables
+1. Push repo ไป GitHub
+2. Import เข้า Vercel
+3. ตั้ง Environment Variables
 4. Deploy
-5. Use `https://your-project.vercel.app/api/webhook` in LINE Developers
+5. ใช้ webhook URL นี้ใน LINE Developers:
+   - `https://line-webhook-psi.vercel.app/api/webhook`
+
+## What is still missing
+
+โปรเจกต์นี้ยังต้องมี **OpenClaw bridge endpoint** จริงอีกฝั่งหนึ่ง
+เพื่อรับ request จาก Vercel แล้วคุยกับ OpenClaw / agent backend ต่อ
+
+พูดสั้น ๆ: ตอนนี้ "ประตูหน้า" มีแล้ว แต่ยังต้องมี "ประตูเข้าสมอง" ให้ Vercel เรียกต่อ
