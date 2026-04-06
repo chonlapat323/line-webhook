@@ -1,71 +1,10 @@
 import { askOpenClaw } from '@/lib/openclaw';
 import {
   normalizeLineEvent,
-  pushLineMessage,
   replyLineMessage,
   shouldRespond,
   verifyLineSignature,
 } from '@/lib/line';
-
-function getPushTarget(inbound) {
-  if (inbound.chatType === 'group' || inbound.chatType === 'room') return inbound.chatId;
-  return inbound.userId || inbound.chatId;
-}
-
-async function processAsyncReply(inbound) {
-  try {
-    console.log('[line-webhook] calling-bridge', {
-      eventId: inbound.eventId,
-      chatType: inbound.chatType,
-      chatId: inbound.chatId,
-    });
-
-    const aiRes = await askOpenClaw(inbound);
-    const replyText = aiRes?.reply || aiRes?.text || aiRes?.message || 'รับข้อความแล้ว แต่ยังตอบกลับไม่ได้';
-
-    console.log('[line-webhook] bridge-ok', {
-      eventId: inbound.eventId,
-      hasReply: Boolean(replyText),
-      preview: String(replyText).slice(0, 120),
-    });
-
-    const pushTarget = getPushTarget(inbound);
-
-    console.log('[line-webhook] pushing-line', {
-      eventId: inbound.eventId,
-      pushTarget,
-      replyLength: String(replyText).length,
-    });
-
-    await pushLineMessage(pushTarget, String(replyText).slice(0, 5000));
-
-    console.log('[line-webhook] push-ok', {
-      eventId: inbound.eventId,
-      pushTarget,
-    });
-  } catch (error) {
-    console.error('[line-webhook] async-failed', {
-      eventId: inbound.eventId,
-      message: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-
-    try {
-      const pushTarget = getPushTarget(inbound);
-      await pushLineMessage(pushTarget, 'ตอนนี้แจ่มใสติดอะไรบางอย่างอยู่ ขออีกแป๊บนะ');
-      console.log('[line-webhook] async-fallback-push-ok', {
-        eventId: inbound.eventId,
-        pushTarget,
-      });
-    } catch (pushError) {
-      console.error('[line-webhook] async-fallback-push-failed', {
-        eventId: inbound.eventId,
-        message: pushError instanceof Error ? pushError.message : String(pushError),
-        stack: pushError instanceof Error ? pushError.stack : undefined,
-      });
-    }
-  }
-}
 
 export async function POST(request) {
   const rawBody = await request.text();
@@ -118,19 +57,14 @@ export async function POST(request) {
         eventId: inbound.eventId,
       });
 
-      const asyncWork = processAsyncReply(inbound);
-      if (typeof request.waitUntil === 'function') {
-        request.waitUntil(asyncWork);
-      } else {
-        asyncWork.catch((error) => {
-          console.error('[line-webhook] detached-async-failed', {
-            eventId: inbound.eventId,
-            message: error instanceof Error ? error.message : String(error),
-          });
-        });
-      }
+      const bridgeAck = await askOpenClaw(inbound, { path: '/line-event-async', timeoutMs: 10000 });
 
-      results.push({ eventId: inbound.eventId, ok: true, mode: 'async' });
+      console.log('[line-webhook] async-accepted', {
+        eventId: inbound.eventId,
+        bridgeAck,
+      });
+
+      results.push({ eventId: inbound.eventId, ok: true, mode: 'async', accepted: true });
     } catch (error) {
       console.error('[line-webhook] ack-failed', {
         eventId: inbound.eventId,
