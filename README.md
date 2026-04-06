@@ -28,10 +28,7 @@ Next.js webhook receiver for LINE Messaging API.
 ## Current routing rules
 
 - DM (`source.type=user`) → ตอบทุกข้อความ text
-- Group/Room → ตอบเมื่อข้อความขึ้นต้นด้วย:
-  - `แจ่มใส`
-  - `bot`
-  - `/ask`
+- Group/Room → ตอบทุกข้อความ text เช่นกันในตอนนี้ เพื่อให้ debug และทดสอบ flow ได้ง่าย
 
 ปรับได้ใน `lib/line.js` ฟังก์ชัน `shouldRespond()`
 
