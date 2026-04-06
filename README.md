@@ -80,20 +80,18 @@ npm run dev
 5. ใช้ webhook URL นี้ใน LINE Developers:
    - `https://line-webhook-psi.vercel.app/api/webhook`
 
-## Local bridge added
+## Local bridge
 
-ตอนนี้ repo นี้มีโฟลเดอร์ `bridge/` เพิ่มแล้ว สำหรับรัน **Local Bridge API**
-เพื่อให้ Vercel ส่งข้อความต่อเข้ามายังเครื่อง local ได้
+เพื่อให้แยก deploy และแยก GitHub repo ชัดเจน ฝั่ง Local Bridge API ถูกแยกออกไปเป็นอีกโปรเจกต์แล้ว:
 
-สิ่งที่ bridge ตัวนี้ทำได้แล้ว:
-- รับ request จาก Vercel ที่ `POST /line-event`
-- ตรวจ bearer token (`INTERNAL_API_TOKEN`)
-- มี `GET /health`
-- กัน event ซ้ำเบื้องต้น
-- ส่งต่อไป downstream local service ได้ถ้าตั้ง `OPENCLAW_LOCAL_URL`
-- มี fallback reply ถ้ายังไม่ได้เสียบ OpenClaw adapter จริง
+- `C:\project\openclaw-local-bridge`
 
-พูดสั้น ๆ: ตอนนี้ "ประตูหน้า" และ "ประตูกลาง" มีแล้ว
-เหลือแค่เสียบปลายทางเข้า OpenClaw local/runtime ที่คุณใช้อยู่จริง
+ดังนั้นสถาปัตยกรรมตอนนี้คือ:
+- `linewebhook` = ฝั่ง Vercel / LINE webhook receiver
+- `openclaw-local-bridge` = ฝั่ง local ที่รับ request จาก Vercel แล้วค่อยต่อเข้า OpenClaw
 
-ดูต่อที่ `bridge/README.md`
+สิ่งที่ `linewebhook` ต้องรู้มีแค่นี้:
+- `OPENCLAW_BRIDGE_URL=https://your-tunnel-url/line-event`
+- `INTERNAL_API_TOKEN=...`
+
+โดย `OPENCLAW_BRIDGE_URL` ต้องชี้ไปยังโปรเจกต์ local bridge ที่เปิดผ่าน tunnel ไว้
